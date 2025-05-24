@@ -1,0 +1,269 @@
+body {
+  font-family: "Montserrat", sans-serif;
+  font-weight: 800;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0;
+  width: 1920px;
+  height: 1080px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12))
+    drop-shadow(0 3px 1px rgba(0, 0, 0, 0.14))
+    drop-shadow(0 1px 5px rgba(0, 0, 0, 0.12))
+    drop-shadow(0 -1px 2px rgba(0, 0, 0, 0.1));
+  letter-spacing: 1;
+}
+
+.tournament_container {
+  position: absolute;
+  height: 55px;
+  width: 247px;
+  background-color: var(--p1-score-bg-color);
+  top: 46px;
+  left: 26px;
+
+  box-sizing: border-box;
+  border-width: 2px;
+  border-color: black;
+  border-style: solid;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.match_container {
+  position: absolute;
+  height: 47px;
+  width: 239px;
+  background-color: black;
+}
+
+.container {
+  position: absolute;
+  height: 61px;
+  width: 584px;
+  top: 10px;
+  background-color: var(--p1-score-bg-color);
+  box-sizing: border-box;
+  border-width: 3px;
+  border-color: black;
+  border-style: solid;
+
+  gap: 2px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.p1.container {
+  left: 295px;
+}
+
+.p2.container {
+  right: 295px;
+  flex-direction: row-reverse;
+}
+
+.inner_container {
+  height: 51px;
+  width: 510px;
+  background-color: var(--p2-score-bg-color);
+  display: flex;
+}
+
+.p2 .inner_container {
+  flex-direction: row-reverse;
+}
+
+.score_container {
+  height: 51px;
+  width: 62px;
+  background-color: black;
+}
+
+.score {
+  color: white;
+  font-size: 38px;
+}
+
+.twitter_container {
+  position: absolute;
+  bottom: 240px;
+  height: 39px;
+  width: 343px;
+  background-color: var(--p2-score-bg-color);
+
+  box-sizing: border-box;
+  padding: 0 15px;
+}
+
+.p1.twitter_container {
+  left: 27px;
+}
+
+.p2.twitter_container {
+  right: 27px;
+}
+
+.camera_container {
+  position: absolute;
+  height: 208px;
+  width: 343px;
+  bottom: 15px;
+  box-sizing: border-box;
+  border-width: 4px;
+  border-color: black;
+  border-style: solid;
+
+  display: flex;
+}
+
+.p1.camera_container {
+  left: 27px;
+}
+
+.p2.camera_container {
+  right: 27px;
+}
+
+.camera_outer_border {
+  height: 200px;
+  width: 335px;
+
+  box-sizing: border-box;
+  border-width: 2px;
+  border-color: var(--p1-score-bg-color);
+  border-style: solid;
+
+  display: flex;
+}
+
+.camera_inner_border {
+  height: 196px;
+  width: 331px;
+
+  box-sizing: border-box;
+  border-width: 11px;
+  border-color: var(--p2-score-bg-color);
+  border-style: solid;
+}
+
+.name_container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.p1 .name_container {
+  margin-left: 12px;
+}
+
+.p2 .name_container {
+  margin-right: 12px;
+}
+
+.name {
+  font-size: 26px;
+  color: var(--text-color);
+  word-spacing: 2px;
+  overflow: hidden;
+}
+
+.p1 .flagcountry .text_empty {
+  margin-left: 0px;
+}
+
+.p2 .flagcountry .text_empty {
+  margin-right: 0px;
+}
+
+.p1 .flagcountry:not(.text_empty) {
+  margin-left: 12px;
+}
+
+.p2 .flagcountry:not(.text_empty) {
+  margin-right: 12px;
+}
+
+.flags_container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.flag {
+  display: inline-block;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  width: 44px;
+  height: 44px;
+}
+
+.p1 .sponsor {
+  background: var(--p1-score-bg-color);
+
+  /* For gradient color */
+  /* background: linear-gradient(
+    90deg,
+    var(--p1-score-bg-color) 0%,
+    var(--text-color) 200%
+  ); */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.p2 .sponsor {
+  background: var(--p1-score-bg-color);
+
+  /* For gradient color */
+  /* background: linear-gradient(
+    90deg,
+    var(--p2-score-bg-color) 0%,
+    var(--text-color) 200%
+  ); */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.twitter {
+  color: var(--text-color);
+  font-size: 22px;
+  overflow: hidden;
+}
+
+.twitter_logo {
+  -webkit-mask-image: url(./x_twitter.png);
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+
+  background: white;
+  /* background: var(--p1-score-bg-color); */
+  width: 30px;
+  height: 30px;
+}
+
+.match {
+  font-size: 20px;
+  color: white;
+  overflow: hidden;
+  padding: 0 15px;
+}
+
+.logo {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 75px;
+  height: 75px;
+  background-image: url("../logo.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  border-radius: var(--border-radius);
+  z-index: 9;
+}
