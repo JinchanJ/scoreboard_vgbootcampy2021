@@ -13,6 +13,24 @@ body {
   letter-spacing: 1;
 }
 
+.anim_container_outer {
+  position: absolute;
+  overflow: hidden;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1330px;
+  height: 1080px;
+}
+
+.anim_container_inner {
+  position: absolute;
+  overflow: hidden;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1920px;
+  height: 1080px;
+}
+
 .tournament_container {
   position: absolute;
   height: 55px;
@@ -84,7 +102,7 @@ body {
 
 .score {
   color: white;
-  font-size: 38px;
+  font-size: 35px;
 }
 
 .twitter_container {
@@ -157,18 +175,19 @@ body {
 }
 
 .p1 .name_container {
-  margin-left: 12px;
+  margin: 0 12px;
 }
 
 .p2 .name_container {
-  margin-right: 12px;
+  margin: 0 12px;
 }
 
 .name {
-  font-size: 26px;
+  font-size: 27px;
   color: var(--text-color);
   word-spacing: 2px;
   overflow: hidden;
+  /* text-transform: uppercase; */
 }
 
 .p1 .flagcountry .text_empty {
@@ -180,11 +199,11 @@ body {
 }
 
 .p1 .flagcountry:not(.text_empty) {
-  margin-left: 12px;
+  margin-left: 6px;
 }
 
 .p2 .flagcountry:not(.text_empty) {
-  margin-right: 12px;
+  margin-right: 6px;
 }
 
 .flags_container {
@@ -198,8 +217,8 @@ body {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  width: 44px;
-  height: 44px;
+  width: 47px;
+  height: 47px;
 }
 
 .p1 .sponsor {
@@ -230,7 +249,7 @@ body {
 
 .twitter {
   color: var(--text-color);
-  font-size: 22px;
+  font-size: 25px;
   overflow: hidden;
 }
 
@@ -240,17 +259,18 @@ body {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-position: center;
 
-  background: white;
-  /* background: var(--p1-score-bg-color); */
+  /* background: white; */
+  background: var(--p1-score-bg-color);
   width: 30px;
   height: 30px;
 }
 
 .match {
-  font-size: 20px;
+  font-size: 19px;
   color: white;
   overflow: hidden;
   padding: 0 15px;
+  text-transform: uppercase;
 }
 
 .logo {

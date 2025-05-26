@@ -26,7 +26,7 @@ LoadEverything().then(() => {
       [".anim_container_outer"],
       {
         duration: 1,
-        width: "168px",
+        width: "162px",
         ease: "power2.inOut",
       },
       1
@@ -35,6 +35,7 @@ LoadEverything().then(() => {
       [".p1.twitter_container"],
       {
         duration: 0.75,
+        opacity: 0,
         x: "-373px",
         ease: "power4.Out",
       },
@@ -44,6 +45,7 @@ LoadEverything().then(() => {
       [".p2.twitter_container"],
       {
         duration: 0.75,
+        opacity: 0,
         x: "373px",
         ease: "power4.Out",
       },
@@ -51,11 +53,7 @@ LoadEverything().then(() => {
     )
     .from(
       ".tournament_container",
-      {
-        duration: 0.75,
-        x: "-326px",
-        ease: "power4.Out",
-      },
+      { opacity: 0, duration: 0.5, ease: "power4.Out" },
       "<"
     )
     .from(
@@ -111,8 +109,6 @@ LoadEverything().then(() => {
           );
 
           console.log(player.country);
-
-          DisplaySponsorLogo(t, player, team);
           
         }
         if (team.color) {
@@ -131,33 +127,6 @@ LoadEverything().then(() => {
     }
   };
 
-  async function DisplaySponsorLogo(t, player, team) {
-    await SetInnerHtml(
-      $(`.p${t + 1} .sponsor_container`),
-      player.sponsor_logo && Object.keys(team.player).length == 1
-        ? `<div class='sponsor_logo' style="background-image: url('../../${player.sponsor_logo}')"></div>`
-        : ``
-    );
-    let element = document.querySelector(`.p${t + 1} .sponsor_container`);
-    let width = parseFloat(window.getComputedStyle(element).width);
-    let styleSheet = document.styleSheets[1];
-    if (!width) {
-      if (t == 0) {
-        styleSheet.insertRule(`.p${t+ 1} .sponsor_logo { margin-left: 0px; !important}`, styleSheet.cssRules.length);
-      }
-      if (t == 1) {
-        styleSheet.insertRule(`.p${t+ 1} .sponsor_logo { margin-right: 0px; !important}`, styleSheet.cssRules.length);
-      }
-    } else {
-      if (t == 0) {
-        styleSheet.insertRule(`.p${t+ 1} .sponsor_logo { margin-left: 12px; !important}`, styleSheet.cssRules.length);
-      }
-      if (t == 1) {
-        styleSheet.insertRule(`.p${t+ 1} .sponsor_logo { margin-right: 12px; !important}`, styleSheet.cssRules.length);
-      }
-    }
-  }
-
   async function UpdateTwitterMatch() {
     UpdateTwitter();
     UpdateMatch();
@@ -168,25 +137,23 @@ LoadEverything().then(() => {
 
     if (!(data.score[window.scoreboardNumber].best_of
       || data.score[window.scoreboardNumber].match)) {
-      tournamentContainer.classList.add("hidden");
-      tournamentContainer.classList.remove("unhidden");
+      gsap.to(tournamentContainer, { duration: 0.5, opacity: 0 });
     } else {
-      tournamentContainer.classList.add("unhidden");
-      tournamentContainer.classList.remove("hidden");
+      gsap.to(tournamentContainer, { duration: 0.5, opacity: 1 });
 
       if (!data.score[window.scoreboardNumber].best_of
         && data.score[window.scoreboardNumber].match) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match.toUpperCase());
+        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
       } else if (data.score[window.scoreboardNumber].best_of
         && !data.score[window.scoreboardNumber].match) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].best_of_text.toUpperCase());
+        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].best_of_text);
       } else if (savedMatch != data.score[window.scoreboardNumber].match) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match.toUpperCase());
+        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
       } else if (savedBestOf != data.score[window.scoreboardNumber].best_of) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match.toUpperCase());
+        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
       } else {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].best_of_text.toUpperCase());
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match.toUpperCase());
+        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].best_of_text);
+        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
       }
     }
     savedBestOf = data.score[window.scoreboardNumber].best_of;
@@ -230,11 +197,13 @@ LoadEverything().then(() => {
             !(player.twitter || player.pronoun) ||
             Object.values(team.player).length != 1
           ) {
-            playerTwitter.classList.add("hidden");
-            playerTwitter.classList.remove("unhidden");
+            // playerTwitter.classList.add("hidden");
+            // playerTwitter.classList.remove("unhidden");
+            gsap.to(playerTwitter, { duration: 0.5, opacity: 0 });
           } else {
-            playerTwitter.classList.add("unhidden");
-            playerTwitter.classList.remove("hidden");
+            // playerTwitter.classList.add("unhidden");
+            // playerTwitter.classList.remove("hidden");
+            gsap.to(playerTwitter, { duration: 0.5, opacity: 1 });
 
             if (!player.twitter && player.pronoun) {
               SetInnerHtml(
@@ -401,7 +370,7 @@ LoadEverything().then(() => {
 
         // P1 has (WL)
         SetInnerHtml(
-          $(`.p1.inner_container .name`),
+          $(`.p1.container .name`),
           `
           <span>
             <span class="sponsor">
