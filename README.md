@@ -1,6 +1,22 @@
 # scoreboard_vgbootcampy2021
 
-Top left container alternates between match and best of.
-Twitter/pronoun container alternates between twitter and pronoun.
-Does not alternate if one of the info is not available.
-The container itself disappears if both of the info are not available.
+# How to add new info to the tournament container on the top left and player twitter container:
+
+When adding new info to the tournament, you will need to add a variable name to matchDisplayModes.
+Then, you need to define where to get that information in the getMatchDisplayFieldMap function.
+
+Ex. Adding phase:
+
+Add "phase" to matchDisplayModes like this:
+
+matchDisplayModes: ["match", "best_of_text", "phase"]
+
+Then add where to get phase in getMatchDisplayFieldMap function:
+
+function getMatchDisplayFieldMap(score) {
+return {
+"match": score.match,
+"best_of_text": score.best_of_text,
+"phase": score.phase
+};
+}
