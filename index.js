@@ -1,758 +1,254 @@
+const ROTATION_INTERVAL = 9000;
+
+const overlayState = {
+  lastDisplayedMatchText: "",
+      matchDisplayModes: ["match", "best_of_text"],
+  displayModes: ["twitter", "pronoun"],
+  currentModeIndex: 0,
+  p1Twitter: "", p2Twitter: "", p1Pronoun: "", p2Pronoun: "",
+  savedBestOf: 0, savedMatch: "", firstTime: true, intervalID: "",
+    player1: "", player2: "", team1Name: "", team2Name: "",
+  team1Losers: false, team2Losers: false,
+  data: null
+};
+
+function forEachTeamPlayer(data, callback) {
+  ["1", "2"].forEach((num, t) => {
+    const team = data.score[window.scoreboardNumber].team[num];
+    Object.values(team.player).forEach((player, p) => {
+      if (player) callback(team, t, player, p);
+    });
+  });
+}
+
+const setName = async (selector, team, name, suffix = "") => {
+  SetInnerHtml($(selector), `
+    <span>
+      <span class="sponsor">${team ? team.replace(/\s*[\|\/\\]\s*/g, ' ') : ""}</span>
+      ${name ? await Transcript(name) : ""} ${suffix}
+    </span>
+  `);
+};
+
+const toggleVisibility = (el, visible) => {
+  if (overlayState.firstTime) return;
+  gsap.to(el, { duration: 0.5, opacity: visible ? 1 : 0 });
+};
+
+const formatPlayerOverlayContent = (player) => {
+  const modes = overlayState.displayModes;
+  for (let i = 0; i < modes.length; i++) {
+    const mode = modes[(overlayState.currentModeIndex + i) % modes.length];
+    switch (mode) {
+      case "twitter":
+        if (player.twitter) return `<span class="twitter_logo"></span>@${player.twitter}`;
+        break;
+      case "pronoun":
+        if (player.pronoun) return player.pronoun.toUpperCase();
+        break;
+            default:
+        break;
+    }
+  }
+  return "";
+};
+
+const compareObjects = (obj1, obj2) => {
+  const keys = Object.keys(obj1).sort();
+  for (const key of keys) {
+    if (["character", "mains", "id", "mergedName", "mergedOnlyName", "seed", ""].includes(key)) continue;
+    if (!(key in obj2)) return false;
+    const val1 = obj1[key], val2 = obj2[key];
+    if (typeof val1 === 'object' && val1 && val2) {
+      if (!compareObjects(val1, val2)) return false;
+    } else if (val1 !== val2) return false;
+  }
+  return true;
+};
+
+const DisplayName = async (t, player) => {
+  
+  if (t === 0) { overlayState.player1 = player; overlayState.team1Losers = overlayState.data.score[window.scoreboardNumber].team["1"].losers; }
+  if (t === 1) { overlayState.player2 = player; overlayState.team2Losers = overlayState.data.score[window.scoreboardNumber].team["2"].losers; }
+  const playerInWinners = JSON.parse(localStorage.getItem("playerInWinners"));
+  
+
+  const getSuffix = (p, other, losers) =>
+    overlayState.team1Losers && overlayState.team2Losers
+      ? compareObjects(playerInWinners, p) ? "(WL)" : "(L)"
+      : losers ? "(L)" : overlayState.team1Losers || overlayState.team2Losers ? "(W)" : "";
+
+  await setName(".p1.container .name", overlayState.player1.team, overlayState.player1.name, getSuffix(overlayState.player1, overlayState.player2, overlayState.team1Losers));
+  await setName(".p2.container .name", overlayState.player2.team, overlayState.player2.name, getSuffix(overlayState.player2, overlayState.player1, overlayState.team2Losers));
+
+  if (t === 1 && overlayState.player1.name && !overlayState.team1Losers && overlayState.team2Losers) {
+    localStorage.setItem("playerInWinners", JSON.stringify(overlayState.player1));
+  } else if (t === 1 && overlayState.player2.name && overlayState.team1Losers && !overlayState.team2Losers) {
+    localStorage.setItem("playerInWinners", JSON.stringify(overlayState.player2));
+  }
+};
+
+const DisplayTeamName = async (t, teamName) => {
+  
+  const team = overlayState.data.score[window.scoreboardNumber].team[String(t + 1)];
+  if (t === 0) { overlayState.team1Name = teamName; overlayState.team1Losers = team.losers; }
+  if (t === 1) { overlayState.team2Name = teamName; overlayState.team2Losers = team.losers; }
+  const teamNameInWinners = localStorage.getItem("teamNameInWinners");
+  
+
+  const getSuffix = (name, losers) =>
+    overlayState.team1Losers && overlayState.team2Losers
+      ? name === teamNameInWinners ? "(WL)" : "(L)"
+      : losers ? "(L)" : overlayState.team1Losers || overlayState.team2Losers ? "(W)" : "";
+
+  SetInnerHtml($(`.p1.container .name`), `<span>${overlayState.team1Name} ${getSuffix(overlayState.team1Name, overlayState.team1Losers)}</span>`);
+  SetInnerHtml($(`.p2.container .name`), `<span>${overlayState.team2Name} ${getSuffix(overlayState.team2Name, overlayState.team2Losers)}</span>`);
+
+  if (t === 1 && overlayState.team1Name && !overlayState.team1Losers && overlayState.team2Losers) {
+    localStorage.setItem("teamNameInWinners", overlayState.team1Name);
+  } else if (t === 1 && overlayState.team2Name && overlayState.team1Losers && !overlayState.team2Losers) {
+    localStorage.setItem("teamNameInWinners", overlayState.team2Name);
+  }
+};
+
+window.Update = async (event) => {
+  console.log("Update triggered", { event });
+  const { data: newData, oldData } = event;
+  overlayState.data = newData;
+
+  // Display player or team names and scores
+  forEachTeamPlayer(newData, async (team, t, player) => {
+    const playerCount = Object.keys(team.player).length;
+    if (playerCount === 1) {
+      await DisplayName(t, player);
+    } else {
+      const names = await Promise.all(
+        Object.values(team.player).map(p => Transcript(p.name))
+      );
+      const teamName = team.teamName || names.join(" / ");
+      await DisplayTeamName(t, teamName);
+    }
+    SetInnerHtml($(`.p${t + 1} .score`), String(team.score ?? 0));
+
+    if (team.color) {
+      document.documentElement.style.setProperty(`--p${t + 1}-score-bg-color`, team.color);
+    }
+
+    const flagContainer = $(`.p${t + 1}.container .flagcountry`);
+    const showFlag = player.country && player.country.asset && playerCount === 1;
+    const flagHtml = showFlag
+      ? `<div class='flag' style="background-image: url('https://gepi.global-e.com/content/images/flags/${player.country.code.toLowerCase()}.png')"></div>`
+      : "";
+    SetInnerHtml(flagContainer, flagHtml);
+  });
+
+  let twitterChanged = false;
+  let matchChanged = false;
+
+  forEachTeamPlayer(newData, (team, t, player) => {
+    if (t === 0 && (player.twitter !== overlayState.p1Twitter || player.pronoun !== overlayState.p1Pronoun)) {
+      twitterChanged = true;
+    }
+    if (t === 1 && (player.twitter !== overlayState.p2Twitter || player.pronoun !== overlayState.p2Pronoun)) {
+      twitterChanged = true;
+    }
+  });
+
+  const score = newData.score[window.scoreboardNumber];
+  if (score.best_of !== overlayState.savedBestOf || score.match !== overlayState.savedMatch) {
+    matchChanged = true;
+  }
+
+  if (twitterChanged || matchChanged) {
+    await window.UpdateTwitterMatch();
+    window.resetIntervals();
+    overlayState.firstTime = false;
+  }
+
+  if (overlayState.firstTime) {
+    window.resetIntervals();
+    overlayState.firstTime = false;
+  }
+};
+
 LoadEverything().then(() => {
 
-  let p1Twitter = "";
-  let p2Twitter = "";
-  let p1Pronoun = "";
-  let p2Pronoun = "";
-  let newP1Twitter = "";
-  let newP2Twitter = "";
-  let newP1Pronoun = "";
-  let newP2Pronoun = "";
-  let savedBestOf = 0;
-  let savedMatch = "";
-  let firstTime = true;
-  let intervalID = "";
-  let player1 = "";
-  let player2 = "";
-  let team1Name = "";
-  let team2Name = "";
-  let team1Losers = false;
-  let team2Losers = false;
-
-  let startingAnimation = gsap
-    .timeline({ paused: true })
+  function getNextModeIndex() {
+    return (overlayState.currentModeIndex + 1) % overlayState.displayModes.length;
+  }
+    
+  const startingAnimation = gsap.timeline({ paused: true })
     .from([".logo"], { duration: 0.5, autoAlpha: 0, ease: "power2.inOut" }, 0.5)
-    .from(
-      [".anim_container_outer"],
-      {
-        duration: 1,
-        width: "162px",
-        ease: "power2.inOut",
-      },
-      1
-    )
-    .from(
-      [".p1.twitter_container"],
-      {
-        duration: 0.75,
-        opacity: 0,
-        x: "-373px",
-        ease: "power4.Out",
-      },
-      "<25%"
-    )
-    .from(
-      [".p2.twitter_container"],
-      {
-        duration: 0.75,
-        opacity: 0,
-        x: "373px",
-        ease: "power4.Out",
-      },
-      "<"
-    )
-    .from(
-      ".tournament_container",
-      { opacity: 0, duration: 0.5, ease: "power4.Out" },
-      "<"
-    )
-    .from(
-      ".tournament_logo",
-      { opacity: 0, duration: 0.5, ease: "power4.Out" },
-      "<"
-    );
+    .from([".anim_container_outer"], { duration: 1, width: "162px", ease: "power2.inOut" }, "<70%")
+    .from([".p1.twitter_container"], { duration: 1, opacity: 0, x: "-373px", ease: "power2.inOut" }, "<")
+    .from([".p2.twitter_container"], { duration: 1, opacity: 0, x: "373px", ease: "power2.inOut" }, "<")
+    .from(".tournament_container", { opacity: 0, duration: 0.5, ease: "power4.Out" });
 
-  Start = async () => {
-    startingAnimation.restart();
-    intervalID = setInterval(UpdateTwitterMatch, 9000);
-    setInterval(TwitterPronounChecker, 100);
-    setInterval(matchChecker, 100);
-  };
-
-  Update = async (event) => {
-    let data = event.data;
-    let oldData = event.oldData;
-
-    for (const [t, team] of [
-      data.score[window.scoreboardNumber].team["1"],
-      data.score[window.scoreboardNumber].team["2"],
-    ].entries()) {
-      for (const [p, player] of [team.player["1"]].entries()) {
-        if (player) {
-
-          if (Object.keys(team.player).length == 1) {
-            DisplayName(t, team, player)
-          } else {
-            let teamName = "";
-
-            if (!team.teamName || team.teamName == "") {
-              let names = [];
-              for (const [p, player] of Object.values(team.player).entries()) {
-                if (player && player.name) {
-                  names.push(await Transcript(player.name));
-                }
-              }
-              teamName = names.join(" / ");
-            } else {
-              teamName = team.teamName;
-            }
-            DisplayTeamName(t, team, teamName);
-          }
-
-          SetInnerHtml($(`.p${t + 1} .score`), String(team.score));
-
-          SetInnerHtml(
-            $(`.p${t + 1}.container .flagcountry`),
-            player.country.asset && Object.keys(team.player).length == 1
-              ? `<div class='flag' style="background-image: url('https://gepi.global-e.com/content/images/flags/${player.country.code.toLowerCase()}.png')"></div>`
-              : ""
-          );
-
-          console.log(player.country);
-          
-        }
-        if (team.color) {
-          document
-            .querySelector(":root")
-            .style.setProperty(`--p${t + 1}-score-bg-color`, team.color);
-        }
-      }
-    }
-
-    // Only on first update
-    if (Object.keys(oldData).length == 0) {
-      UpdateMatch();
-      UpdateTwitter();
-      firstTime = false;
-    }
-  };
-
-  async function UpdateTwitterMatch() {
-    UpdateTwitter();
-    UpdateMatch();
-  }
-
-  async function UpdateMatch() {
+  window.UpdateMatch = async () => {
+    console.log("UpdateMatch triggered");
+    const score = overlayState.data.score[window.scoreboardNumber];
     const tournamentContainer = document.querySelector(".tournament_container");
+    toggleVisibility(tournamentContainer, !!(score.best_of || score.match));
 
-    if (!(data.score[window.scoreboardNumber].best_of
-      || data.score[window.scoreboardNumber].match)) {
-      gsap.to(tournamentContainer, { duration: 0.5, opacity: 0 });
-    } else {
-      gsap.to(tournamentContainer, { duration: 0.5, opacity: 1 });
-
-      if (!data.score[window.scoreboardNumber].best_of
-        && data.score[window.scoreboardNumber].match) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
-      } else if (data.score[window.scoreboardNumber].best_of
-        && !data.score[window.scoreboardNumber].match) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].best_of_text);
-      } else if (savedMatch != data.score[window.scoreboardNumber].match) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
-      } else if (savedBestOf != data.score[window.scoreboardNumber].best_of) {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
-      } else {
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].best_of_text);
-        SetInnerHtml($(".match"), data.score[window.scoreboardNumber].match);
-      }
-    }
-    savedBestOf = data.score[window.scoreboardNumber].best_of;
-    savedMatch = data.score[window.scoreboardNumber].match;
-  }
-
-  async function UpdateTwitter() {
-    changeInP1 = false;
-    changeInP2 = false;
-
-    [data.score[window.scoreboardNumber].team["1"], data.score[window.scoreboardNumber].team["2"]].forEach((team, t) => {
-      [team.player["1"]].forEach((player, p) => {
-        if (player) {
-          if (t == 0) {
-            newP1Twitter = player.twitter;
-            newP1Pronoun = player.pronoun;
-          }
-
-          if (t == 1) {
-            newP2Twitter = player.twitter;
-            newP2Pronoun = player.pronoun;
-          }
-        }
-      });
-      if (newP1Twitter != p1Twitter || newP1Pronoun != p1Pronoun) {
-        changeInP1 = true;
-      }
-
-      if (newP2Twitter != p2Twitter || newP2Pronoun != p2Pronoun) {
-        changeInP2 = true;
-      }
-    });
-
-    [data.score[window.scoreboardNumber].team["1"]
-    , data.score[window.scoreboardNumber].team["2"]].forEach((team, t) => {
-      [team.player["1"]].forEach((player, p) => {
-        if (player) {
-          const playerTwitter = document.querySelector(`.p${t + 1}.twitter_container`);
-
-          if (
-            !(player.twitter || player.pronoun) ||
-            Object.values(team.player).length != 1
-          ) {
-            // playerTwitter.classList.add("hidden");
-            // playerTwitter.classList.remove("unhidden");
-            gsap.to(playerTwitter, { duration: 0.5, opacity: 0 });
-          } else {
-            // playerTwitter.classList.add("unhidden");
-            // playerTwitter.classList.remove("hidden");
-            gsap.to(playerTwitter, { duration: 0.5, opacity: 1 });
-
-            if (!player.twitter && player.pronoun) {
-              SetInnerHtml(
-                $(`.p${t + 1} .twitter`),
-                player.pronoun.toUpperCase()
-              );
-            }
-
-            if (player.twitter && !player.pronoun) {
-              SetInnerHtml(
-                $(`.p${t + 1} .twitter`),
-                player.twitter
-                  ? `<span class="twitter_logo"></span>${
-                      "@" + String(player.twitter)
-                    }`
-                  : ""
-              );
-            }
-
-            if (changeInP1 || changeInP2) {
-              if (player.twitter) {
-                SetInnerHtml(
-                  $(`.p${t + 1} .twitter`),
-                  player.twitter
-                    ? `<span class="twitter_logo"></span>${
-                        "@" + String(player.twitter)
-                      }`
-                    : ""
-                );
-              }
-            } else {
-              if (player.pronoun) {
-                SetInnerHtml(
-                  $(`.p${t + 1} .twitter`),
-                  player.pronoun.toUpperCase()
-                );
-              }
-              if (player.twitter) {
-                SetInnerHtml(
-                  $(`.p${t + 1} .twitter`),
-                  player.twitter
-                    ? `<span class="twitter_logo"></span>${
-                        "@" + String(player.twitter)
-                      }`
-                    : ""
-                );
-              }
-            }
-          }
-          if (t == 0) {
-            p1Twitter = player.twitter;
-            p1Pronoun = player.pronoun;
-          }
-
-          if (t == 1) {
-            p2Twitter = player.twitter;
-            p2Pronoun = player.pronoun;
-          }
-        }
-      });
-    });
-  }
-
-  async function TwitterPronounChecker() {
-    let refreshNeeded = false;
-    [data.score[window.scoreboardNumber].team["1"]
-    , data.score[window.scoreboardNumber].team["2"]].forEach((team, t) => {
-      [team.player["1"]].forEach((player, p) => {
-        if (
-          t == 0 &&
-          !(p1Twitter == player.twitter && p1Pronoun == player.pronoun)
-        ) {
-          refreshNeeded = true;
-        } else if (
-          t == 1 &&
-          !(p2Twitter == player.twitter && p2Pronoun == player.pronoun)
-        ) {
-          refreshNeeded = true;
-        }
-      });
-    });
-    if (refreshNeeded && !firstTime) {
-      UpdateTwitter();
-      resetIntervals();
-    }
-    refreshNeeded = false;
-  }
-
-  function resetIntervals() {
-    clearInterval(intervalID);
-    intervalID = setInterval(UpdateTwitterMatch, 9000);
-  }
-
-  async function matchChecker() {
-    let refreshNeeded = false;
-
-    if (
-      !(savedBestOf == data.score[window.scoreboardNumber].best_of
-        && savedMatch == data.score[window.scoreboardNumber].match)
-    ) {
-      refreshNeeded = true;
-    }
-
-    if (refreshNeeded && !firstTime) {
-      UpdateMatch();
-      resetIntervals();
-    }
-    refreshNeeded = false;
-  }
-
-  /**
-   * Checks to see whether the properties and their values of obj1 are the same as those of obj2
-   * Created this function with the help of ChatGPT, modified to make it recursive and fit the need of the overlay.
-   * @param obj1 Object 1 to compare
-   * @param obj2 Object 2 to compare
-   * @returns boolean of whether the properties and their values of obj1 are the same as those of obj2
-   */
-  function compareObjects(obj1, obj2) {
-    // Get the property names of obj1
-    const obj1Keys = Object.keys(obj1).sort();
-
-    // Loop through the properties of obj1
-    for (let key of obj1Keys) {
-      if (key !== "character" && key !== "mains" && key !== "id" && key !== "mergedName" && key !== "mergedOnlyName" && key != "seed" && key != "") {
-        // Check if the property exists in obj2
-        if (!obj2.hasOwnProperty(key)) {
-          return false;
-        }
-        // Check if the values of the properties are the same
-        // Check to see if there is an object inside the object
-        if (typeof obj1[key] == "object" && obj1[key] && obj2[key]) {
-          // If an inner object of obj1 is not equal to the inner object of obj2, then we return false to avoid any more comparisons
-          if (!compareObjects(obj1[key], obj2[key])) return false;
-          // If the primitive types are not equal to each other, then we return false here as well
-        } else if (obj1[key] !== obj2[key]) {
-          return false;
-        }
-      }
-    }
-    // If all properties and their values are the same, return true
-    return true;
-  }
-
-  async function DisplayName(t, team, player) {
-
-    const retrievedJsonString = localStorage.getItem("playerInWinners");
-    const playerInWinners = JSON.parse(retrievedJsonString);
-
-    if (t == 0) {
-      player1 = player
-      team1Losers = team.losers
-    }
-
-    if (t == 1) {
-      player2 = player
-      team2Losers = team.losers
-    }
-
-      // If the player and the opponent are both in losers
-    if (team1Losers && team2Losers) {
-
-      // If P1 was in winners
-      if (compareObjects(playerInWinners, player1)) {
-
-        // P1 has (WL)
-        SetInnerHtml(
-          $(`.p1.container .name`),
-          `
-          <span>
-            <span class="sponsor">
-              ${player1.team ? player1.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-            </span>
-            ${
-              player1.name ? await Transcript(player1.name) : ""
-            }
-            ${"(WL)"}
-          </span>
-          `
-        );
-
-        // P2 has (L)
-        SetInnerHtml(
-          $(`.p2.container .name`),
-          `
-          <span>
-            <span class="sponsor">
-              ${player2.team ? player2.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-            </span>
-            ${
-              player2.name ? await Transcript(player2.name) : ""
-            }
-            ${"(L)"}
-          </span>
-          `
-        );
-
-      // If P2 was in winners
-      } else if (compareObjects(playerInWinners, player2)) { 
-
-        // P1 has (L)
-        SetInnerHtml(
-          $(`.p1.container .name`),
-          `
-          <span>
-            <span class="sponsor">
-              ${player1.team ? player1.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-            </span>
-            ${
-              player1.name ? await Transcript(player1.name) : ""
-            }
-            ${"(L)"}
-          </span>
-          `
-        );
-
-        // P2 has (WL)
-        SetInnerHtml(
-          $(`.p2.container .name`),
-          `
-          <span>
-            <span class="sponsor">
-              ${player2.team ? player2.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-            </span>
-            ${
-              player2.name ? await Transcript(player2.name) : ""
-            }
-            ${"(WL)"}
-          </span>
-          `
-        );
-
-      // If neither of them were in winners (which is unlikely but possible)
-      } else {
-
-        // P1 has (L)
-        SetInnerHtml(
-          $(`.p1.container .name`),
-          `
-          <span>
-            <span class="sponsor">
-              ${player1.team ? player1.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-            </span>
-            ${
-              player1.name ? await Transcript(player1.name) : ""
-            }
-            ${"(L)"}
-          </span>
-          `
-        );
-
-        // P2 has (L)
-        SetInnerHtml(
-          $(`.p2.container .name`),
-          `
-          <span>
-            <span class="sponsor">
-              ${player2.team ? player2.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-            </span>
-            ${
-              player2.name ? await Transcript(player2.name) : ""
-            }
-            ${"(L)"}
-          </span>
-          `
-        );
-      }
-
-    } else if (team1Losers) { // P1 in losers, P2 in winners
-
-      // P1 has (L)
-      SetInnerHtml(
-        $('.p1.container .name'),
-        `
-        <span>
-          <span class="sponsor">
-            ${player1.team ? player1.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-          </span>
-          ${
-            player1.name ? await Transcript(player1.name) : ""
-          }
-          ${"(L)"}
-        </span>
-        `
-      );
+    const displayModes = overlayState.matchDisplayModes.map(mode => {
       
-      // P2 has (W)
-      SetInnerHtml(
-        $('.p2.container .name'),
-        `
-        <span>
-          <span class="sponsor">
-            ${player2.team ? player2.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-          </span>
-          ${
-            player2.name ? await Transcript(player2.name) : ""
-          }
-          ${"(W)"}
-        </span>
-        `
-      );
-
-      if (t == 1 && player2.name) {
-        const jsonString = JSON.stringify(player2);
-        localStorage.setItem("playerInWinners", jsonString);
+      switch (mode) {
+      case "match":
+        return score.match;
+      case "best_of_text":
+        return score.best_of_text;
+                  default:
+          return "";
       }
+    }).filter(Boolean);
 
-    } else if (team2Losers) {
+    const matchElement = $(".match");
+    const displayText = displayModes[overlayState.currentModeIndex % displayModes.length] ?? "";
+    SetInnerHtml(matchElement, displayText);
 
-      // P1 has (W)
-      SetInnerHtml(
-        $('.p1.container .name'),
-        `
-        <span>
-          <span class="sponsor">
-            ${player1.team ? player1.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-          </span>
-          ${
-            player1.name ? await Transcript(player1.name) : ""
-          }
-          ${"(W)"}
-        </span>
-        `
-      );
-      
-      // P2 to has (L)
-      SetInnerHtml(
-        $('.p2.container .name'),
-        `
-        <span>
-          <span class="sponsor">
-            ${player2.team ? player2.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-          </span>
-          ${
-            player2.name ? await Transcript(player2.name) : ""
-          }
-          ${"(L)"}
-        </span>
-        `
-      );
+    overlayState.savedBestOf = score.best_of;
+    overlayState.savedMatch = score.match;
+  };
 
-      if (t == 1 && player1.name) {
-        const jsonString = JSON.stringify(player1);
-        localStorage.setItem("playerInWinners", jsonString);
-      }
+  window.UpdateTwitter = async () => {
+    console.log("UpdateTwitter triggered");
+  forEachTeamPlayer(overlayState.data, (team, t, player) => {
+    const twitterContainer = document.querySelector(`.p${t + 1}.twitter_container`);
+    const isSolo = Object.values(team.player).length === 1;
+    const visible = (player.twitter || player.pronoun) && isSolo;
 
-    // Neither P1 nor P2 is in losers
-    } else {
-
-      SetInnerHtml(
-        $('.p1.container .name'),
-        `
-        <span>
-          <span class="sponsor">
-            ${player1.team ? player1.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-          </span>
-          ${
-            player1.name ? await Transcript(player1.name) : ""
-          }
-        </span>
-        `
-      );
-
-      SetInnerHtml(
-        $('.p2.container .name'),
-        `
-        <span>
-          <span class="sponsor">
-            ${player2.team ? player2.team.replace(/\s*[\|\/\\]\s*/g, ' '): ""}
-          </span>
-          ${
-            player2.name ? await Transcript(player2.name) : ""
-          }
-        </span>
-        `
-      );
-
-    }
-  }
-
-  async function DisplayTeamName(t, team, teamName) {
-
-    const teamNameInWinners = localStorage.getItem("teamNameInWinners");
-
-    if (t == 0) {
-      team1Name = teamName;
-      team1Losers = team.losers
+    toggleVisibility(twitterContainer, visible);
+    if (visible) {
+      SetInnerHtml($(`.p${t + 1} .twitter`), formatPlayerOverlayContent(player));
     }
 
-    if (t == 1) {
-      team2Name = teamName;
-      team2Losers = team.losers
-    }
+    if (t === 0) [overlayState.p1Twitter, overlayState.p1Pronoun] = [player.twitter, player.pronoun];
+    else [overlayState.p2Twitter, overlayState.p2Pronoun] = [player.twitter, player.pronoun];
+  });
+};
 
-      // If the player and the opponent are both in losers
-    if (team1Losers && team2Losers) {
-
-      // If Team 1 was in winners
-      if (team1Name == teamNameInWinners) {
-
-        // Team 1 has (WL)
-        SetInnerHtml(
-          $(`.p1.container .name`),
-          `
-          <span>
-            ${team1Name}
-            ${"(WL)"}
-          </span>
-          `
-        );
-
-        // Team 2 has (L)
-        SetInnerHtml(
-          $(`.p2.container .name`),
-          `
-          <span>
-            ${team2Name}
-            ${"(L)"}
-          </span>
-          `
-        );
-
-      // If Team 2 was in winners
-      } else if (team2Name == teamNameInWinners) { 
-
-        // Team 1 has (L)
-        SetInnerHtml(
-          $(`.p1.container .name`),
-          `
-          <span>
-            ${team1Name}
-            ${"(L)"}
-          </span>
-          `
-        );
-
-        // Team 2 has (WL)
-        SetInnerHtml(
-          $(`.p2.container .name`),
-          `
-          <span>
-            ${team2Name}
-            ${"(WL)"}
-          </span>
-          `
-        );
-
-      // If neither of them were in winners (which is unlikely but possible)
-      } else {
-
-        // Team 1 has (L)
-        SetInnerHtml(
-          $(`.p1.container .name`),
-          `
-          <span>
-            ${team1Name}
-            ${"(L)"}
-          </span>
-          `
-        );
-
-        // Team 2 has (L)
-        SetInnerHtml(
-          $(`.p2.container .name`),
-          `
-          <span>
-            ${team2Name}
-            ${"(L)"}
-          </span>
-          `
-        );
+  window.UpdateTwitterMatch = async () => {
+    console.log("UpdateTwitterMatch triggered");
+    await window.UpdateTwitter();
+    await window.UpdateMatch();
+  };
+  window.resetIntervals = () => {
+    console.log("resetIntervals called");
+    clearInterval(overlayState.intervalID);
+    
+    overlayState.intervalID = setInterval(() => {
+      console.log("Rotating to mode:", overlayState.displayModes[(overlayState.currentModeIndex + 1) % overlayState.displayModes.length]);
+      const nextMode = getNextModeIndex();
+      if (nextMode !== null) {
+        overlayState.currentModeIndex = nextMode;
       }
+      window.UpdateTwitter();
+      window.UpdateMatch();
+    }, ROTATION_INTERVAL);
+  };
 
-    } else if (team1Losers) { // Team 1 in losers, Team 2 in winners
-
-      // Team 1 has (L)
-      SetInnerHtml(
-        $(`.p1.container .name`),
-        `
-        <span>
-          ${team1Name}
-          ${"(L)"}
-        </span>
-        `
-      );
-
-      // Team 2 has (W)
-      SetInnerHtml(
-        $(`.p2.container .name`),
-        `
-        <span>
-          ${team2Name}
-          ${"(W)"}
-        </span>
-        `
-      );
-
-      if (t == 1 && team2Name) {
-        localStorage.setItem("teamNameInWinners", team2Name);
-      }
-
-    } else if (team2Losers) {
-
-      // Team 1 has (W)
-      SetInnerHtml(
-        $(`.p1.container .name`),
-        `
-        <span>
-          ${team1Name}
-          ${"(W)"}
-        </span>
-        `
-      );
-
-      // Team 2 has (L)
-      SetInnerHtml(
-        $(`.p2.container .name`),
-        `
-        <span>
-          ${team2Name}
-          ${"(L)"}
-        </span>
-        `
-      );
-
-      if (t == 1 && team1Name) {
-        localStorage.setItem("teamNameInWinners", team1Name);
-      }
-
-    // Neither P1 nor P2 is in losers
-    } else {
-
-      SetInnerHtml(
-        $(`.p1.container .name`),
-        `
-        <span>
-          ${team1Name}
-        </span>
-        `
-      );
-
-      SetInnerHtml(
-        $(`.p2.container .name`),
-        `
-        <span>
-          ${team2Name}
-        </span>
-        `
-      );
-
-    }
-  }
+  window.Start = async () => {
+    startingAnimation.restart();
+    window.resetIntervals();
+  };
 });
