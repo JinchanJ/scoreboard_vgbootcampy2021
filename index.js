@@ -2,8 +2,8 @@ const ROTATION_INTERVAL = 10000;
 
 const overlayState = {
   matchModeIndex: 0,
-  matchDisplayModes: ["!bracket", "match", "best_of_text"],
-  displayModes: ["twitter", "pronoun", "yolo"],
+  matchDisplayModes: ["match", "best_of_text"],
+  displayModes: ["twitter", "pronoun"],
   currentPlayerModeIndex: 0,
   firstTime: true,
   intervalID: "",
@@ -187,8 +187,7 @@ LoadEverything().then(() => {
 function getMatchDisplayFieldMap(score) {
   return {
     "match": score.match,
-    "best_of_text": score.best_of_text,
-    "!bracket": "!BRACKET"
+    "best_of_text": score.best_of_text
   };
 }
 
@@ -197,8 +196,7 @@ function getPlayerDisplayFieldMap(player) {
     "twitter": player.twitter
       ? `<span class="twitter_logo"></span>@${player.twitter}`
       : "",
-    "pronoun": player.pronoun.toUpperCase(),
-    "yolo": "yolo swag"
+    "pronoun": player.pronoun.toUpperCase()
   };
 }
 
