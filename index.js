@@ -357,7 +357,7 @@ window.UpdateTwitter = async () => {
 
     // ✅ Fade in if solo w/ info, fade out otherwise
     toggleVisibility(twitterContainer, visible);
-    toggleVisibility(cameraContainer, visible);
+    toggleVisibility(cameraContainer, isSolo);
   });
 };
 
