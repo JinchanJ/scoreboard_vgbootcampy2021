@@ -50,7 +50,7 @@ function getPlayerDisplayFieldMap(player) {
 }
 ```
 
-## How to make the player names uppercase:
+## How to make player names uppercase:
 Make sure text-transform of .name is set to uppercase in index.css as shown below:
 ```css
 .name {
