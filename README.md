@@ -22,8 +22,8 @@ matchDisplayModes: ["!bracket", "match", "best_of_text"];
 function getMatchDisplayFieldMap(score) {
   return {
     "!bracket": "!BRACKET",
-    match: score.match,
-    best_of_text: score.best_of_text,
+    "match": score.match,
+    "best_of_text": score.best_of_text,
   };
 }
 ```
@@ -41,11 +41,11 @@ displayModes: ["seed", "twitter", "pronoun"];
 ```js
 function getPlayerDisplayFieldMap(player) {
   return {
-    seed: player.seed ? `SEED ${player.seed}` : "",
-    twitter: player.twitter
+    "seed": player.seed ? `SEED ${player.seed}` : "",
+    "twitter": player.twitter
       ? `<span class="twitter_logo"></span>@${player.twitter}`
       : "",
-    pronoun: player.pronoun ? player.pronoun.toUpperCase() : "",
+    "pronoun": player.pronoun ? player.pronoun.toUpperCase() : "",
   };
 }
 ```
