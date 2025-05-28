@@ -45,7 +45,7 @@ function getPlayerDisplayFieldMap(player) {
     twitter: player.twitter
       ? `<span class="twitter_logo"></span>@${player.twitter}`
       : "",
-    pronoun: player.pronoun.toUpperCase(),
+    pronoun: player.pronoun ? player.pronoun.toUpperCase() : "",
   };
 }
 ```

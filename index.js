@@ -26,7 +26,9 @@ function getPlayerDisplayFieldMap(player) {
     "twitter": player.twitter
       ? `<span class="twitter_logo"></span>@${player.twitter}`
       : "",
-    "pronoun": player.pronoun.toUpperCase(),
+    "pronoun": player.pronoun
+      ? player.pronoun.toUpperCase()
+      : "",
   };
 }
 
@@ -35,6 +37,8 @@ LoadEverything().then(() => {
     console.log("Update triggered", { event });
     const { data: newData } = event;
     overlayState.data = newData;
+
+    await window.UpdateTwitter();
   
     const score = overlayState.data.score[window.scoreboardNumber];
     const team1 = score.team["1"];
@@ -114,10 +118,7 @@ LoadEverything().then(() => {
       [player1Fields[mode], player2Fields[mode]].join("||")
     ).join("###");
   
-    const previousDisplayedTwitter = overlayState.lastDisplayedPlayerHash ?? "";
     const previousAllTwitter = overlayState.lastTotalTwitterHash ?? "";
-  
-    const currentTwitterChanged = displayedTwitterHash !== previousDisplayedTwitter;
     const anyTwitterChanged = allTwitterHashes !== previousAllTwitter;
   
     overlayState.lastDisplayedPlayerHash = displayedTwitterHash;
@@ -158,12 +159,10 @@ LoadEverything().then(() => {
     overlayState.savedMatchDisplayHash = allMatchValuesHash;
   
     // === Update and Interval reset ===
-    const displayNeedsUpdate = currentTwitterChanged || currentMatchChanged;
     const anyChange = anyTwitterChanged || anyMatchChanged;
   
     if (anyChange) {
-      if (displayNeedsUpdate) {
-        await window.UpdateTwitter();
+      if (currentMatchChanged) {
         await window.UpdateMatch();
       }
       window.resetIntervals();
@@ -171,14 +170,20 @@ LoadEverything().then(() => {
   
     // === Initial setup ===
     if (overlayState.firstTime) {
-      p1Container.style.opacity = hasPlayer1Info ? 1 : 0;
-      p2Container.style.opacity = hasPlayer2Info ? 1 : 0;
-  
+      const team1PlayerCount = Object.keys(team1.player).length;
+      const team2PlayerCount = Object.keys(team2.player).length;
+    
+      const isTeam1Solo = team1PlayerCount === 1;
+      const isTeam2Solo = team2PlayerCount === 1;
+    
+      p1Container.style.opacity = (hasPlayer1Info && isTeam1Solo) ? 1 : 0;
+      p2Container.style.opacity = (hasPlayer2Info && isTeam2Solo) ? 1 : 0;
+    
       const startingAnimation = gsap.timeline({ paused: false })
         .from([".logo"], { duration: 0.5, autoAlpha: 0, ease: "power2.inOut" })
         .from([".anim_container_outer"], { duration: 1, width: "162px", ease: "power2.inOut" });
-  
-      if (hasPlayer1Info) {
+    
+      if (hasPlayer1Info && isTeam1Solo) {
         startingAnimation.from([".p1.twitter_container"], {
           duration: 1,
           opacity: 0,
@@ -186,8 +191,8 @@ LoadEverything().then(() => {
           ease: "power2.inOut"
         }, "<");
       }
-  
-      if (hasPlayer2Info) {
+    
+      if (hasPlayer2Info && isTeam2Solo) {
         startingAnimation.from([".p2.twitter_container"], {
           duration: 1,
           opacity: 0,
@@ -195,7 +200,7 @@ LoadEverything().then(() => {
           ease: "power2.inOut"
         }, "<");
       }
-  
+    
       if (newValidMatchModes.length > 0) {
         startingAnimation.from(".tournament_container", {
           opacity: 0,
@@ -203,7 +208,7 @@ LoadEverything().then(() => {
           ease: "power4.Out"
         });
       }
-  
+    
       window.resetIntervals();
       overlayState.firstTime = false;
     }
@@ -334,10 +339,9 @@ window.UpdateTwitter = async () => {
   forEachTeamPlayer(overlayState.data, (team, t, player) => {
     const twitterContainer = document.querySelector(`.p${t + 1}.twitter_container`);
     const contentEl = $(`.p${t + 1} .twitter`);
-    const isSolo = Object.values(team.player).length === 1;
+    const isSolo = Object.keys(team.player).length === 1;
     const playerFields = getPlayerDisplayFieldMap(player);
     const hasAnyDisplayInfo = overlayState.displayModes.some(mode => !!playerFields[mode]);
-    const visible = isSolo && hasAnyDisplayInfo;
 
     const { content } = formatPlayerOverlayContent(player);
     const playerKey = player.name ?? `team${t}_player`;
@@ -346,12 +350,11 @@ window.UpdateTwitter = async () => {
       lastPlayerContent[playerKey] = content;
       SetInnerHtml(contentEl, content);
     } else {
-      // ⛔ Player has display modes, but none are valid for current/fallback
-      // ✅ Show blank string instead of old content
       SetInnerHtml(contentEl, "");
     }
 
-    toggleVisibility(twitterContainer, visible);
+    // ✅ Fade in if solo w/ info, fade out otherwise
+    toggleVisibility(twitterContainer, isSolo && hasAnyDisplayInfo);
   });
 };
 
