@@ -3,12 +3,13 @@ const ROTATION_INTERVAL = 10000;
 const overlayState = {
   matchModeIndex: 0,
   matchDisplayModes: ["!bracket", "match", "best_of_text"],
-  displayModes: ["twitter", "pronoun"],
+  displayModes: ["twitter", "pronoun", "yolo"],
   currentPlayerModeIndex: 0,
   firstTime: true,
   intervalID: "",
   lastDisplayedPlayerHash: "",
-  savedMatchDisplayHash: ""
+  savedMatchDisplayHash: "",
+  validMatchModes: []
 }
 
 LoadEverything().then(() => {
@@ -37,16 +38,15 @@ LoadEverything().then(() => {
         localStorage.setItem("teamNameInWinners", winnerTeam);
       }
     }
-  
     const team1Player = team1.player["1"] || {};
     const team2Player = team2.player["1"] || {};
   
     const player1Fields = getPlayerDisplayFieldMap(team1Player);
     const player2Fields = getPlayerDisplayFieldMap(team2Player);
-    const validModes = getAvailableDisplayModes(team1Player, team2Player, overlayState.displayModes);
+    const validPlayerModes = getAvailableDisplayModes(team1Player, team2Player, overlayState.displayModes);
   
     // Reset index if mode is invalid
-    if (!validModes.includes(validModes[overlayState.currentPlayerModeIndex % validModes.length])) {
+    if (!validPlayerModes.includes(validPlayerModes[overlayState.currentPlayerModeIndex % validPlayerModes.length])) {
       overlayState.currentPlayerModeIndex = 0;
     }
   
@@ -99,10 +99,28 @@ LoadEverything().then(() => {
   
     // === Match display fallback-aware change detection ===
     const matchDisplayMap = getMatchDisplayFieldMap(score);
-    const validMatchModes = overlayState.matchDisplayModes.filter(mode => matchDisplayMap[mode]);
+    const newValidMatchModes = overlayState.matchDisplayModes.filter(mode => matchDisplayMap[mode]);
+  
+    // Preserve the current displayed mode (string)
+    const currentDisplayedMode = overlayState.validMatchModes?.[overlayState.matchModeIndex % overlayState.validMatchModes.length] ?? null;
+  
+    if (!newValidMatchModes.includes(currentDisplayedMode)) {
+      // If current mode is no longer valid, pick the next valid one after it (or fallback to first)
+      const currentIndexInAll = overlayState.matchDisplayModes.indexOf(currentDisplayedMode ?? "");
+      const fallbackMode = newValidMatchModes.find(mode => {
+        return overlayState.matchDisplayModes.indexOf(mode) > currentIndexInAll;
+      }) || newValidMatchModes[0];
+  
+      overlayState.matchModeIndex = newValidMatchModes.indexOf(fallbackMode);
+    } else {
+      // Current mode still valid — preserve it
+      overlayState.matchModeIndex = newValidMatchModes.indexOf(currentDisplayedMode);
+    }
+  
+    overlayState.validMatchModes = newValidMatchModes;
   
     const { content: currentMatchValue } = getMatchDisplayContent(score);
-    const allMatchValuesHash = validMatchModes.map(mode => matchDisplayMap[mode] ?? "").join("||");
+    const allMatchValuesHash = newValidMatchModes.map(mode => matchDisplayMap[mode] ?? "").join("||");
   
     const previousMatchValue = overlayState.lastDisplayedMatchValue ?? "";
     const previousMatchHash = overlayState.savedMatchDisplayHash ?? "";
@@ -152,7 +170,7 @@ LoadEverything().then(() => {
         }, "<");
       }
   
-      if (validMatchModes.length > 0) {
+      if (newValidMatchModes.length > 0) {
         startingAnimation.from(".tournament_container", {
           opacity: 0,
           duration: 0.5,
@@ -179,15 +197,14 @@ function getPlayerDisplayFieldMap(player) {
     "twitter": player.twitter
       ? `<span class="twitter_logo"></span>@${player.twitter}`
       : "",
-    "pronoun": player.pronoun
-      ? player.pronoun.toUpperCase()
-      : ""
+    "pronoun": player.pronoun.toUpperCase(),
+    "yolo": "yolo swag"
   };
 }
 
 function getMatchDisplayContent(score) {
   const matchDisplayMap = getMatchDisplayFieldMap(score);
-  const validMatchModes = overlayState.matchDisplayModes.filter(mode => matchDisplayMap[mode]);
+  const validMatchModes = overlayState.validMatchModes || [];
 
   if (validMatchModes.length === 0) return { content: "", modeUsed: null };
 
@@ -334,30 +351,31 @@ window.resetIntervals = () => {
   clearInterval(overlayState.intervalID);
 
   const rotate = () => {
-    const player1 = overlayState.data.score[window.scoreboardNumber].team["1"].player["1"];
-    const player2 = overlayState.data.score[window.scoreboardNumber].team["2"].player["1"];
-  
+    const score = overlayState.data.score[window.scoreboardNumber];
+
+    const player1 = score.team["1"].player["1"];
+    const player2 = score.team["2"].player["1"];
+
+    // Rotate player modes
     const validPlayerModes = overlayState.displayModes.filter(mode => {
       const p1Field = getPlayerDisplayFieldMap(player1)[mode];
       const p2Field = getPlayerDisplayFieldMap(player2)[mode];
       return !!p1Field || !!p2Field;
     });
-  
-    const score = overlayState.data.score[window.scoreboardNumber];
-    const matchDisplayMap = getMatchDisplayFieldMap(score);
-    const validMatchModes = overlayState.matchDisplayModes.filter(mode => matchDisplayMap[mode]);
-  
+
     if (validPlayerModes.length > 1) {
       overlayState.currentPlayerModeIndex = (overlayState.currentPlayerModeIndex + 1) % validPlayerModes.length;
     }
-  
-    if (validMatchModes.length > 1) {
-      overlayState.matchModeIndex = (overlayState.matchModeIndex + 1) % validMatchModes.length;
+
+    // Rotate match modes (only if >1 valid)
+    if (overlayState.validMatchModes.length > 1) {
+      overlayState.matchModeIndex = (overlayState.matchModeIndex + 1) % overlayState.validMatchModes.length;
     }
+
     window.UpdateTwitter();
     window.UpdateMatch();
-  };  
-  
+  };
+
   overlayState.intervalID = setInterval(rotate, ROTATION_INTERVAL);
 };
 
