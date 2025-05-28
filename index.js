@@ -1,15 +1,33 @@
+// How long it takes to update the information, in milliseconds. 10000 milliseconds = 10 seconds.
 const ROTATION_INTERVAL = 10000;
 
 const overlayState = {
   matchModeIndex: 0,
-  matchDisplayModes: ["match", "best_of_text"],
-  displayModes: ["twitter", "pronoun"],
   currentPlayerModeIndex: 0,
   firstTime: true,
   intervalID: "",
   lastDisplayedPlayerHash: "",
   savedMatchDisplayHash: "",
-  validMatchModes: []
+  validMatchModes: [],
+
+  matchDisplayModes: ["match", "best_of_text"],
+  displayModes: ["twitter", "pronoun"]
+}
+
+function getMatchDisplayFieldMap(score) {
+  return {
+    "match": score.match,
+    "best_of_text": score.best_of_text
+  };
+}
+
+function getPlayerDisplayFieldMap(player) {
+  return {
+    "twitter": player.twitter
+      ? `<span class="twitter_logo"></span>@${player.twitter}`
+      : "",
+    "pronoun": player.pronoun.toUpperCase()
+  };
 }
 
 LoadEverything().then(() => {
@@ -183,22 +201,6 @@ LoadEverything().then(() => {
     }
   };  
 });
-
-function getMatchDisplayFieldMap(score) {
-  return {
-    "match": score.match,
-    "best_of_text": score.best_of_text
-  };
-}
-
-function getPlayerDisplayFieldMap(player) {
-  return {
-    "twitter": player.twitter
-      ? `<span class="twitter_logo"></span>@${player.twitter}`
-      : "",
-    "pronoun": player.pronoun.toUpperCase()
-  };
-}
 
 function getMatchDisplayContent(score) {
   const matchDisplayMap = getMatchDisplayFieldMap(score);
