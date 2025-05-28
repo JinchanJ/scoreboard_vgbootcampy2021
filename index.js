@@ -34,11 +34,8 @@ function getPlayerDisplayFieldMap(player) {
 
 LoadEverything().then(() => {
   Update = async (event) => {
-    console.log("Update triggered", { event });
     const { data: newData } = event;
     overlayState.data = newData;
-
-    await window.UpdateTwitter();
   
     const score = overlayState.data.score[window.scoreboardNumber];
     const team1 = score.team["1"];
@@ -48,7 +45,7 @@ LoadEverything().then(() => {
     overlayState.bothLosers = overlayState.team1Losers && overlayState.team2Losers;
     overlayState.neitherLoser = !overlayState.team1Losers && !overlayState.team2Losers;
   
-    // Store winners
+    // === Store winners ===
     if (!overlayState.bothLosers && !overlayState.neitherLoser) {
       if (Object.keys(team1.player).length === 1) {
         const winnerPlayer = !overlayState.team1Losers ? team1.player["1"] : team2.player["1"];
@@ -59,35 +56,16 @@ LoadEverything().then(() => {
         const winnerTeamObj = !overlayState.team1Losers ? team1 : team2;
         const playerNames = Object.values(winnerTeamObj.player).map(p => p.name).filter(Boolean);
         const fallbackName = winnerTeamObj.teamName || playerNames.join(" / ");
-      
         if (fallbackName) {
           localStorage.setItem("teamNameInWinners", fallbackName);
-          console.log("Stored winner team:", fallbackName);
-        } else {
-          console.warn("Could not determine winner team name");
         }
       }
     }
-    const team1Player = team1.player["1"] || {};
-    const team2Player = team2.player["1"] || {};
   
-    const player1Fields = getPlayerDisplayFieldMap(team1Player);
-    const player2Fields = getPlayerDisplayFieldMap(team2Player);
-    const validPlayerModes = getAvailableDisplayModes(team1Player, team2Player, overlayState.displayModes);
-  
-    // Reset index if mode is invalid
-    if (!validPlayerModes.includes(validPlayerModes[overlayState.currentPlayerModeIndex % validPlayerModes.length])) {
-      overlayState.currentPlayerModeIndex = 0;
-    }
-  
-    const hasPlayer1Info = overlayState.displayModes.some(mode => player1Fields[mode]);
-    const hasPlayer2Info = overlayState.displayModes.some(mode => player2Fields[mode]);
-  
-    const p1Container = document.querySelector(".p1.twitter_container");
-    const p2Container = document.querySelector(".p2.twitter_container");
-  
+    // === Update UI elements: name, score, flag, color ===
     forEachTeamPlayer(newData, async (team, t, player) => {
       const playerCount = Object.keys(team.player).length;
+  
       if (playerCount === 1) {
         await DisplayEntityName(t, player);
       } else {
@@ -95,6 +73,7 @@ LoadEverything().then(() => {
         const teamName = team.teamName || names.join(" / ");
         await DisplayEntityName(t, teamName, true);
       }
+  
       SetInnerHtml($(`.p${t + 1} .score`), String(team.score ?? 0));
   
       if (team.color) {
@@ -109,7 +88,12 @@ LoadEverything().then(() => {
       SetInnerHtml(flagContainer, flagHtml);
     });
   
-    // === Twitter/pronoun fallback-aware display detection ===
+    // === Twitter display hash tracking ===
+    const team1Player = team1.player["1"] || {};
+    const team2Player = team2.player["1"] || {};
+    const player1Fields = getPlayerDisplayFieldMap(team1Player);
+    const player2Fields = getPlayerDisplayFieldMap(team2Player);
+  
     const player1Display = formatPlayerOverlayContent(team1Player);
     const player2Display = formatPlayerOverlayContent(team2Player);
   
@@ -124,65 +108,63 @@ LoadEverything().then(() => {
     overlayState.lastDisplayedPlayerHash = displayedTwitterHash;
     overlayState.lastTotalTwitterHash = allTwitterHashes;
   
-    // === Match display fallback-aware change detection ===
+    // === Match display rotation tracking ===
     const matchDisplayMap = getMatchDisplayFieldMap(score);
     const newValidMatchModes = overlayState.matchDisplayModes.filter(mode => matchDisplayMap[mode]);
   
-    // Preserve the current displayed mode (string)
     const currentDisplayedMode = overlayState.validMatchModes?.[overlayState.matchModeIndex % overlayState.validMatchModes.length] ?? null;
-  
     if (!newValidMatchModes.includes(currentDisplayedMode)) {
-      // If current mode is no longer valid, pick the next valid one after it (or fallback to first)
       const currentIndexInAll = overlayState.matchDisplayModes.indexOf(currentDisplayedMode ?? "");
-      const fallbackMode = newValidMatchModes.find(mode => {
-        return overlayState.matchDisplayModes.indexOf(mode) > currentIndexInAll;
-      }) || newValidMatchModes[0];
+      const fallbackMode = newValidMatchModes.find(mode =>
+        overlayState.matchDisplayModes.indexOf(mode) > currentIndexInAll
+      ) || newValidMatchModes[0];
   
       overlayState.matchModeIndex = newValidMatchModes.indexOf(fallbackMode);
     } else {
-      // Current mode still valid — preserve it
       overlayState.matchModeIndex = newValidMatchModes.indexOf(currentDisplayedMode);
     }
   
     overlayState.validMatchModes = newValidMatchModes;
+
+    // === Immediate visual updates ===
+    await window.UpdateTwitter(); // solo/team visibility + twitter/pronoun text
+    await window.UpdateMatch();   // match mode visibility + text
   
     const { content: currentMatchValue } = getMatchDisplayContent(score);
     const allMatchValuesHash = newValidMatchModes.map(mode => matchDisplayMap[mode] ?? "").join("||");
   
-    const previousMatchValue = overlayState.lastDisplayedMatchValue ?? "";
     const previousMatchHash = overlayState.savedMatchDisplayHash ?? "";
-  
-    const currentMatchChanged = currentMatchValue !== previousMatchValue;
     const anyMatchChanged = allMatchValuesHash !== previousMatchHash;
   
     overlayState.lastDisplayedMatchValue = currentMatchValue;
     overlayState.savedMatchDisplayHash = allMatchValuesHash;
   
-    // === Update and Interval reset ===
     const anyChange = anyTwitterChanged || anyMatchChanged;
   
     if (anyChange) {
-      if (currentMatchChanged) {
-        await window.UpdateMatch();
-      }
       window.resetIntervals();
     }
   
-    // === Initial setup ===
+    // === Initial animation ===
     if (overlayState.firstTime) {
       const team1PlayerCount = Object.keys(team1.player).length;
       const team2PlayerCount = Object.keys(team2.player).length;
-    
       const isTeam1Solo = team1PlayerCount === 1;
       const isTeam2Solo = team2PlayerCount === 1;
-    
-      p1Container.style.opacity = (hasPlayer1Info && isTeam1Solo) ? 1 : 0;
-      p2Container.style.opacity = (hasPlayer2Info && isTeam2Solo) ? 1 : 0;
-    
+  
+      const hasPlayer1Info = overlayState.displayModes.some(mode => player1Fields[mode]);
+      const hasPlayer2Info = overlayState.displayModes.some(mode => player2Fields[mode]);
+  
+      const p1Container = document.querySelector(".p1.twitter_container");
+      const p2Container = document.querySelector(".p2.twitter_container");
+  
+      p1Container.style.opacity = (hasPlayer1Info && isTeam1Solo) ? "1" : "0";
+      p2Container.style.opacity = (hasPlayer2Info && isTeam2Solo) ? "1" : "0";
+  
       const startingAnimation = gsap.timeline({ paused: false })
         .from([".logo"], { duration: 0.5, autoAlpha: 0, ease: "power2.inOut" })
         .from([".anim_container_outer"], { duration: 1, width: "162px", ease: "power2.inOut" });
-    
+  
       if (hasPlayer1Info && isTeam1Solo) {
         startingAnimation.from([".p1.twitter_container"], {
           duration: 1,
@@ -191,7 +173,7 @@ LoadEverything().then(() => {
           ease: "power2.inOut"
         }, "<");
       }
-    
+  
       if (hasPlayer2Info && isTeam2Solo) {
         startingAnimation.from([".p2.twitter_container"], {
           duration: 1,
@@ -200,7 +182,7 @@ LoadEverything().then(() => {
           ease: "power2.inOut"
         }, "<");
       }
-    
+  
       if (newValidMatchModes.length > 0) {
         startingAnimation.from(".tournament_container", {
           opacity: 0,
@@ -208,11 +190,11 @@ LoadEverything().then(() => {
           ease: "power4.Out"
         });
       }
-    
+  
       window.resetIntervals();
       overlayState.firstTime = false;
     }
-  };  
+  };   
 });
 
 function getMatchDisplayContent(score) {
@@ -322,15 +304,23 @@ function getAvailableDisplayModes(player1, player2, allModes) {
 
 window.UpdateMatch = async () => {
   const score = overlayState.data.score[window.scoreboardNumber];
-  const { content: matchText } = getMatchDisplayContent(score);
+  const matchDisplayMap = getMatchDisplayFieldMap(score);
 
   const container = document.querySelector(".tournament_container");
 
-  // ✅ 1. Update content first
+  // Check: is there content in *any* of the display modes?
+  const hasAnyMatchContent = overlayState.matchDisplayModes.some(
+    mode => !!matchDisplayMap[mode]
+  );
+
+  // Get the currently selected content for display
+  const { content: matchText } = getMatchDisplayContent(score);
+
+  // Set text (can be blank)
   SetInnerHtml($(".match"), matchText);
 
-  // ✅ 2. Then handle visibility (fade in/out smoothly)
-  toggleVisibility(container, !!matchText);
+  // ✅ Fade in/out based on whether *any* match info is present
+  toggleVisibility(container, hasAnyMatchContent);
 };
 
 const lastPlayerContent = {};
