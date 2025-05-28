@@ -2,7 +2,7 @@ const ROTATION_INTERVAL = 10000;
 
 const overlayState = {
   matchModeIndex: 0,
-  matchDisplayModes: ["match", "best_of_text"],
+  matchDisplayModes: ["!bracket", "match", "best_of_text"],
   displayModes: ["twitter", "pronoun"],
   currentPlayerModeIndex: 0,
   firstTime: true,
@@ -169,7 +169,8 @@ LoadEverything().then(() => {
 function getMatchDisplayFieldMap(score) {
   return {
     "match": score.match,
-    "best_of_text": score.best_of_text
+    "best_of_text": score.best_of_text,
+    "!bracket": "!BRACKET"
   };
 }
 
@@ -184,30 +185,18 @@ function getPlayerDisplayFieldMap(player) {
   };
 }
 
-const getMatchDisplayContent = (score) => {
+function getMatchDisplayContent(score) {
   const matchDisplayMap = getMatchDisplayFieldMap(score);
   const validMatchModes = overlayState.matchDisplayModes.filter(mode => matchDisplayMap[mode]);
 
-  if (validMatchModes.length === 0) {
-    return { content: "", modeUsed: null };
-  }
+  if (validMatchModes.length === 0) return { content: "", modeUsed: null };
 
-  const currentIndex = overlayState.matchModeIndex % validMatchModes.length;
-  const currentMode = validMatchModes[currentIndex];
-  const currentContent = matchDisplayMap[currentMode];
+  const safeIndex = overlayState.matchModeIndex % validMatchModes.length;
+  const selectedMode = validMatchModes[safeIndex];
+  const selectedContent = matchDisplayMap[selectedMode];
 
-  if (currentContent) {
-    return { content: currentContent, modeUsed: currentMode };
-  }
-
-  for (const mode of validMatchModes) {
-    if (matchDisplayMap[mode]) {
-      return { content: matchDisplayMap[mode], modeUsed: mode };
-    }
-  }
-
-  return { content: "", modeUsed: null };
-};
+  return { content: selectedContent, modeUsed: selectedMode };
+}
 
 const setName = async (selector, team, name, suffix = "") => {
   SetInnerHtml($(selector), `
@@ -247,16 +236,25 @@ const formatPlayerOverlayContent = (player) => {
   const player2 = overlayState.data.score[window.scoreboardNumber].team["2"].player["1"];
   const allModes = overlayState.displayModes;
 
-  const globalValidModes = getAvailableDisplayModes(player1, player2, allModes);
-  const currentGlobalMode = globalValidModes[overlayState.currentPlayerModeIndex % globalValidModes.length];
+  const validModes = allModes.filter(mode => {
+    const f1 = getPlayerDisplayFieldMap(player1)[mode];
+    const f2 = getPlayerDisplayFieldMap(player2)[mode];
+    return !!f1 || !!f2;
+  });
 
+  if (validModes.length === 0) return { content: "", modeUsed: null };
+
+  const modeIndex = overlayState.currentPlayerModeIndex % validModes.length;
+  const currentMode = validModes[modeIndex];
   const playerFields = getPlayerDisplayFieldMap(player);
 
-  if (playerFields[currentGlobalMode]) {
-    return { content: playerFields[currentGlobalMode], modeUsed: currentGlobalMode };
+  // Try current mode
+  if (playerFields[currentMode]) {
+    return { content: playerFields[currentMode], modeUsed: currentMode };
   }
 
-  for (const mode of globalValidModes) {
+  // 🔁 Fallback to next available mode
+  for (const mode of validModes) {
     if (playerFields[mode]) {
       return { content: playerFields[mode], modeUsed: mode };
     }
@@ -336,25 +334,30 @@ window.resetIntervals = () => {
   clearInterval(overlayState.intervalID);
 
   const rotate = () => {
+    const player1 = overlayState.data.score[window.scoreboardNumber].team["1"].player["1"];
+    const player2 = overlayState.data.score[window.scoreboardNumber].team["2"].player["1"];
+  
+    const validPlayerModes = overlayState.displayModes.filter(mode => {
+      const p1Field = getPlayerDisplayFieldMap(player1)[mode];
+      const p2Field = getPlayerDisplayFieldMap(player2)[mode];
+      return !!p1Field || !!p2Field;
+    });
+  
     const score = overlayState.data.score[window.scoreboardNumber];
-    const player1 = score.team["1"].player["1"];
-    const player2 = score.team["2"].player["1"];
-
-    const validPlayerModes = getAvailableDisplayModes(player1, player2, overlayState.displayModes);
     const matchDisplayMap = getMatchDisplayFieldMap(score);
     const validMatchModes = overlayState.matchDisplayModes.filter(mode => matchDisplayMap[mode]);
-
-    if (validPlayerModes.length > 0) {
+  
+    if (validPlayerModes.length > 1) {
       overlayState.currentPlayerModeIndex = (overlayState.currentPlayerModeIndex + 1) % validPlayerModes.length;
     }
-
-    if (validMatchModes.length > 0) {
+  
+    if (validMatchModes.length > 1) {
       overlayState.matchModeIndex = (overlayState.matchModeIndex + 1) % validMatchModes.length;
     }
-
     window.UpdateTwitter();
     window.UpdateMatch();
-  };
+  };  
+  
   overlayState.intervalID = setInterval(rotate, ROTATION_INTERVAL);
 };
 
@@ -395,4 +398,3 @@ window.resetIntervals = () => {
       await setName(selector, player.team, player.name, getSuffix(player, t === 0 ? overlayState.team1Losers : overlayState.team2Losers));
     }
   };
-  
