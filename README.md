@@ -2,7 +2,7 @@
 
 # How to change the rotation interval (time it takes to show the next info)
 
-- Edit the ROTATION_INTERVAL. If you want to change it to 9000 milliseconds (9 seconds), do this:
+Edit the ROTATION_INTERVAL. If you want to change it to 9000 milliseconds (9 seconds), do this:
 
 ```js
 const ROTATION_INTERVAL = 9000;
@@ -36,7 +36,7 @@ function getMatchDisplayFieldMap(score) {
 displayModes: ["seed", "twitter", "pronoun"];
 ```
 
-2. Add what the mode will show in getPlayerDisplayFieldMap
+2. Add what the mode will show in getPlayerDisplayFieldMap.
 
 ```js
 function getPlayerDisplayFieldMap(player) {

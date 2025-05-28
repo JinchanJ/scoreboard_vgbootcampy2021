@@ -17,7 +17,7 @@ const overlayState = {
 function getMatchDisplayFieldMap(score) {
   return {
     "match": score.match,
-    "best_of_text": score.best_of_text
+    "best_of_text": score.best_of_text,
   };
 }
 
@@ -26,7 +26,7 @@ function getPlayerDisplayFieldMap(player) {
     "twitter": player.twitter
       ? `<span class="twitter_logo"></span>@${player.twitter}`
       : "",
-    "pronoun": player.pronoun.toUpperCase()
+    "pronoun": player.pronoun.toUpperCase(),
   };
 }
 
@@ -52,8 +52,16 @@ LoadEverything().then(() => {
           localStorage.setItem("playerInWinners", JSON.stringify({ name: winnerPlayer.name }));
         }
       } else {
-        const winnerTeam = !overlayState.team1Losers ? team1.teamName : team2.teamName;
-        localStorage.setItem("teamNameInWinners", winnerTeam);
+        const winnerTeamObj = !overlayState.team1Losers ? team1 : team2;
+        const playerNames = Object.values(winnerTeamObj.player).map(p => p.name).filter(Boolean);
+        const fallbackName = winnerTeamObj.teamName || playerNames.join(" / ");
+      
+        if (fallbackName) {
+          localStorage.setItem("teamNameInWinners", fallbackName);
+          console.log("Stored winner team:", fallbackName);
+        } else {
+          console.warn("Could not determine winner team name");
+        }
       }
     }
     const team1Player = team1.player["1"] || {};
@@ -385,20 +393,37 @@ window.resetIntervals = () => {
     const neitherLoser = overlayState.neitherLoser;
   
     if (isTeam) {
-      const teamName = nameOrPlayer;
-      const teamNameInWinners = localStorage.getItem("teamNameInWinners")?.toLowerCase();
-  
-      const getSuffix = (name, losers) => {
-        if (bothLosers) {
-          return teamNameInWinners === name?.toLowerCase() ? "(WL)" : "(L)";
-        } else if (neitherLoser) {
-          return "";
-        } else {
-          return losers ? "(L)" : "(W)";
-        }
-      };
-  
-      SetInnerHtml($(selector), `<span>${teamName} ${getSuffix(teamName, t === 0 ? overlayState.team1Losers : overlayState.team2Losers)}</span>`);
+      if (isTeam) {
+        const teamName = nameOrPlayer;
+      
+        const normalizeTeamName = (name) =>
+          name?.toLowerCase().replace(/\s*[\|\/\\]\s*/g, ' ').trim();
+      
+        const storedRaw = localStorage.getItem("teamNameInWinners") || "";
+        const teamNameInWinners = normalizeTeamName(storedRaw);
+        const normalizedCurrentName = normalizeTeamName(teamName);
+      
+        console.log("Comparing team names:", {
+          storedRaw,
+          displayedRaw: teamName,
+          storedNormalized: teamNameInWinners,
+          displayedNormalized: normalizedCurrentName,
+        });
+      
+        const getSuffix = (normalizedCurrent, losers) => {
+          if (bothLosers) {
+            return teamNameInWinners === normalizedCurrent ? "(WL)" : "(L)";
+          } else if (neitherLoser) {
+            return "";
+          } else {
+            return losers ? "(L)" : "(W)";
+          }
+        };
+      
+        const suffix = getSuffix(normalizedCurrentName, t === 0 ? overlayState.team1Losers : overlayState.team2Losers);
+        SetInnerHtml($(selector), `<span>${teamName} ${suffix}</span>`);
+      }
+      
     } else {
       const player = nameOrPlayer;
       const playerInWinners = JSON.parse(localStorage.getItem("playerInWinners") || "{}");
